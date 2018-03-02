@@ -16,14 +16,26 @@ import time
 indir = '../data/';
 wordlist_dir = '../../Wordlists/'
 nlp = spacy.load('en', disable=['parser', 'ner'])
-alpha_list = list(string.ascii_lowercase) + list(string.ascii_uppercase)
-punctuation_list = [',','!','"','#','$','%','&','(',')','*','+','-','.','/',':',';','<','=','>','?','@',
-                    '[','\\',']','^','_','`','{','|','}','~']
+alpha_set = set(string.ascii_lowercase + string.ascii_uppercase)
+punctuation_set = set([',','!','"','#','$','%','&','(',')','*','+','-','.','/',':',';','<','=','>','?','@',
+                    '[','\\',']','^','_','`','{','|','}','~'])
 
 regex_punc = re.compile(r"['\,','\!','\"','\#','\$','\%','\&','\(','\)','\*','\+','\-','\.','\/','\:','\;','\<','\='," \
              r"'\>','\?','\@','\[','\\','\]','\^','\_','\`','\{','\|','\}','\~']+")
 regex_http = re.compile(r"https?:\S+")
 regex_www = re.compile(r"www\.\S+\.\S+")
+
+
+def load_stopwords(wordlist_dir):
+    stopwords_dir = wordlist_dir + 'StopWords'
+    stopwords_set = set()
+    with open(stopwords_dir) as f:
+        for i in f:
+            temp_list = i.split('\n')
+            stopwords_set.add(temp_list[0])
+    return stopwords_set
+stopwords_set = load_stopwords(wordlist_dir)
+
 
 def load_abbrv_set():
     '''
@@ -44,7 +56,6 @@ def load_abbrv_set():
                 temp_list = i.split('\n')
                 abbrv_set.add(temp_list[0])
     return abbrv_set
-
 abbrv_set = load_abbrv_set()# make it globally to save runtime
 
 
@@ -62,7 +73,7 @@ def punc_add_space(line):
     newline = ''
 
     for word in line:
-        if (not any(char in word for char in punctuation_list)) or (word in abbrv_set) :
+        if (not any(char in word for char in punctuation_set)) or (word in abbrv_set) :
             newline = newline + ' ' + word
         else:
             for abbrv in abbrv_set:
@@ -76,6 +87,7 @@ def punc_add_space(line):
             newline = newline + ' ' + word
     newline = newline.strip()
     return newline
+
 
 def preproc1( comment , steps=range(1,11)):
     ''' This function pre-processes a single comment
@@ -129,75 +141,68 @@ def preproc1( comment , steps=range(1,11)):
 
     if 6 in steps:
         # Each token is tagge with its part-of-speech using spaCy
-        utt = nlp(u"{}".format(modComm))
+        # utt = nlp(u"{}".format(modComm))
         newComm = ''
-
-        for token in utt:
+        word_list = modComm.split()
+        doc = spacy.tokens.Doc(nlp.vocab, words=word_list)
+        doc = nlp.tagger(doc)
+        for token in doc:
             newComm = newComm + ' ' + token.text + '/' + token.tag_
-        modComm = newComm.strip()
-        modComm = " ".join(modComm.split())
+        modComm = " ".join(newComm.split())
 
     if 7 in steps:
         # Remove stopwords
-        stopwords_dir = wordlist_dir + 'StopWords'
-        stopwords_set = set()
-        with open(stopwords_dir) as f:
-            for i in f:
-                temp_list = i.split('\n')
-                stopwords_set.add(temp_list[0])
-
         newComm = ''
-        modComm_list = modComm.split(" ")
+        modComm_list = modComm.split()
         for word in modComm_list:
             word_list = word.rsplit('/', 1)
             if word_list[0] not in stopwords_set:
                 newComm = newComm + ' ' + word
-
-        modComm = newComm.strip()
-        modComm = " ".join(modComm.split())
+        modComm = " ".join(newComm.split())
 
     if 8 in steps:
         # Apply lemmatization using spaCy
         oldComm = ''
-        modComm_list = modComm.split(" ")
+        modComm_list = modComm.split()
         for word in modComm_list:
             oldComm = oldComm + ' ' + word.rsplit('/',1)[0]
 
-        oldComm = oldComm.strip()
-        utt = nlp(u"{}".format(oldComm))
+        word_list = oldComm.split()
+        doc = spacy.tokens.Doc(nlp.vocab, words=word_list)
+        doc = nlp.tagger(doc)
         modComm = ''
 
-        for token in utt:
+        for token in doc:
             if token.lemma_[0] == '-':
                 modComm = modComm + ' ' + token.text + '/' + token.tag_
             else:
                 modComm = modComm + ' ' + token.lemma_ + '/' + token.tag_
-        modComm = modComm.strip()
         modComm = " ".join(modComm.split())
 
     if 9 in steps:
         # Add a newline between each sentence
         newComm =''
-        modComm_list = modComm.split(" ")
+        modComm_list = modComm.split()
         for word in modComm_list:
-            if word[-2:] == '/.':
-                newComm = newComm + ' ' + word + '\n '
-            else:
-                newComm = newComm + ' ' + word
+            if word != '':
+                if word[-2:] == '/.':
+                    newComm = newComm + ' ' + word + '\n '
+                else:
+                    newComm = newComm + ' ' + word
         modComm = newComm
+
     if 10 in steps:
         # Convert text to lowercase
         newComm = ''
-        modComm_list = modComm.split(" ")
+        modComm_list = modComm.split(' ')
         for word in modComm_list:
-            if any(ch in word for ch in alpha_list):
+            if word != '':
                 word_list = word.rsplit('/', 1)
                 newComm = newComm + ' ' + word_list[0].lower() + '/' + word_list[1]
-            else:
-                newComm = newComm + ' ' + word
-
+        modComm = newComm
 
     return modComm
+
 
 def process_single_file(file,subdir, args, queue):
     fullFile = os.path.join(subdir, file)
@@ -212,6 +217,7 @@ def process_single_file(file,subdir, args, queue):
         j = json.loads(data[(start+i) % data_len])
         post = {}
         post['body'] = preproc1(j['body'])
+        post['id'] = j['id']
         post['cat'] = file
         print("Finish {}/{} -- {}".format(i + 1, maxline, file))
         data_proc.append(post)
