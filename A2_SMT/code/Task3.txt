@@ -1,0 +1,6 @@
+Applying smoothing delta from 0 to 1, step by 0.2, the result is:
+For Engilish, the Perplexity are: [13.174304489603989, 75.05069030154407, 95.29528917947816, 111.7711686124157, 126.27916891193637]
+For French, the Perplexity are: [12.841568288559658, 83.0180342255634, 108.09232013415442, 128.7500926220681, 147.10610042831664]
+
+When applying smoothing, it puts some probability to the unseen data, while lowering the probability for the seen ones.
+Thus, as the delta goes up (put more prob for unseen data), while the test sample isn't that complicated (contain lots of unseen data from training), the perlexity goes down, which is the case here.
