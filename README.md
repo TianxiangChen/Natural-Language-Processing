@@ -1,6 +1,6 @@
 # Natural-Language-Processing
 this repo will be finalized after May, 2018.
-
+Due to this is an on-going course, I won't update this repo frequently. I will only upload code after it passes assignment deadline include late penalty period.
 
 |      | My score      | UndergradAvg            |  GradAvg                |
 | ---- |:-------------:| :---------------------: | ----------------------: |
