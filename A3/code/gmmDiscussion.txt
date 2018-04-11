@@ -1,0 +1,68 @@
+Firstly, as required in the handout, I did the experiment by changing M, maxIter and number of speakers S.
+I used the control variable method, changing one variable per time while keep the rest unchanged.
+The original code randomly pop one .npy file as test data from each speaker, and different train-test data combination may give different result.
+So, to keep the consistency for the experiment, I generate the train-test data first, then use it for all the experiments.
+Notice in this experiment, I set epsilon to 0 as default, so just let the EM algorithm run maxIter times.
+
+Experiment
+-----------------------------------------------------------------------
+M		maxIter		numSpeakers		Accuracy
+2		1		8			1(8/8)				
+2		1		32			0.75(24/32)
+2		10		8			1(8/8)
+2		10		32			0.96875(31/32)
+2		20		8			1(8/8)
+2		20		32			0.96875(31/32)
+8		1		8			0.875(7/8)
+8		1		32			0.9375(30/32)
+8		10		8			1(8/8)
+8		10		32			0.96875(31/32)		
+8		20		8			1(8/8)
+8		20		32			1(32/32)
+
+Based on the result above, I conclude:
+1. M
+- When M decreases(e.g, from the default 8 to 2), the accuracy decreases because M is too small thus the mixture model is too simple for sufficiently describing the data. 
+- Some prediction can also made (not in the experiment) that if we set M to a crazy large number, the mixture model will tend to use a Gaussian model to fit several or even just one data point, making the accuracy decrease due to over-fitting. 
+- So, M should be set into a proper range based on the data given, the default 8 would be a good choice for this dataset. 
+
+2. maxIter
+- For maxIter, the more means we let the EM algorithm run more times, which helps us to build the GMM thus improve the accuracy. 
+
+3. numSpeakers
+- Decreasing the number of speakers also increases the accuracy in general. This is because less speakers means less candidates for the classifier to select from, which eases the difficulty for the classifier.
+
+4. epsilon
+This does not include in the experiment above. I made a simple experiment here to show the effect of epsilon. 
+Here I disabled the maxIter, so the EM algorithm only stops when it converges to the epsilon
+
+Experiment
+---------------------------------------------------------------------
+M		numSpeakers		epsilon		Accuracy
+4		32			1		1(32/32)
+4		32			100		1(32/32)
+4		32			10000		0.96875(31/32)
+
+- With the epsilon set to a small number, the EM algorithm is forced to run more times to ensure it converges to the degree that the improvement is less than the epsilon thus getting higher accuracy.
+
+
+===========================================================
+				Additional Question
+===========================================================
+1. How might you improve the classification accuracy of the Gaussian mixtures, without adding more training data?
+
+- We can increase the maxIter or decrease the epsilon to improve the accuracy. This forces the EM algorithm to run more times and stop with smaller epsilon.
+	One thing to notice is that when we lower the epsilon, at the same time increasing maxIter is highly recommended.
+	This is because the while loop condition for terminating the EM algorithm is either it reaches maxIter or improvement less than epsilon.
+	When we lower the epsilon, probably EM needs more iterations to converge. If maxIter is set to a really small number at that time, the algorithm is just terminated by its reaches maxIter so the epsilon does not have any effect.
+
+- Another possible way to improve accuracy could be remove the independence assumption. This will make the covariance matrix no longer just diagonal.
+
+
+2. When would your classifier decide that a given test utterance comes from none of the trained speaker models, and how would your classifier come to this decision?
+- From the code we build, no matter what test utterance, the program will calculate the its likelihood for each class and then classify it to the one with highest likelihood.
+- One way to overcome this problem is to set a threshold as the minimum likelihood. If a test utterance has likelihoods lower than the threshold for all the classes, then we can say this utterance doesn't belong to any class.
+
+3. Can you think of some alternative methods for doing speaker identification that don’t use Gaussian mixtures?
+- One alternative might be using Neural Network to train the speakers model.e.g, using the sequence-to-sequence model as suggested in the bonus part.
+- Another method I can think of is using the k-mean cluster. But some extra work (randomly initialization and experiment multiple times and take the most reasonable one) is needed since k-mean only gives local optimum which depends on the initialization.

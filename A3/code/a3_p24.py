@@ -1,4 +1,5 @@
 from sklearn.model_selection import train_test_split
+from sklearn import decomposition
 from scipy.misc import logsumexp
 import numpy as np
 import os, fnmatch
@@ -8,6 +9,7 @@ import math
 dataDir = '../data/'
 # dataDir = '/u/cs401/A3/data/'
 
+
 class theta:
     def __init__(self, name, M=8, d=13):
         self.name = name
@@ -15,25 +17,6 @@ class theta:
         self.mu = np.zeros((M, d))
         self.Sigma = np.zeros((M, d))
 
-
-# def log_b_m_x( m, x, myTheta, preComputedForM=[]):
-#     ''' Returns the log probability of d-dimensional vector x using only component m of model myTheta
-#         See equation 1 of the handout
-#
-#         As you'll see in tutorial, for efficiency, you can precompute something for 'm' that applies to all x outside of this function.
-#         If you do this, you pass that precomputed component in preComputedForM
-#
-#     '''
-#     sigma = (myTheta.Sigma)[m]
-#     mu = (myTheta.mu)[m]
-#     varInv = np.reciprocal(sigma)
-#
-#     term1 = np.multiply(np.square(x), varInv)
-#     term2 = np.multiply(np.multiply(mu, x), varInv)
-#     termDepend = np.sum(np.add (-1 * term1, term2), axis=0)
-#     termIndepend = -1 * preComputedForM[m]
-#
-#     return termDepend + termIndepend
 
 def log_b_m_X(m, X, myTheta):
     '''
@@ -57,20 +40,6 @@ def log_b_m_X(m, X, myTheta):
     return np.subtract(logbm, term_fixed)
 
 
-# def log_p_m_x( m, x, myTheta, preComputedForM=[]):
-#     ''' Returns the log probability of the m^{th} component given d-dimensional vector x, and model myTheta
-#         See equation 2 of handout
-#     '''
-#     dimension = myTheta.omega.shape[0]
-#     log_b = np.zeros((dimension,1))
-#
-#     for i in range(dimension):
-#         log_b[i,0] = log_b_m_x( i, x, myTheta, preComputedForM)
-#
-#     numerator = myTheta.omega[m] * log_b[m]
-#     denominator = np.sum(np.multiply(myTheta.omega, log_b))
-#     return numerator / denominator
-
 def log_p_m_X(myTheta, log_Bs):
     '''
     A modified version of the log(p(m|X)), vectorized computation for efficiency
@@ -80,8 +49,6 @@ def log_p_m_X(myTheta, log_Bs):
     '''
     term1 = np.add(log_Bs, np.log(myTheta.omega))
     term2 = logsumexp(log_Bs, b=myTheta.omega, axis=0)
-    # weighed_sum = np.sum(weighed, axis=0)
-
     return np.subtract(term1, term2)
 
 
@@ -103,7 +70,7 @@ def logLik(log_Bs, myTheta):
 def train(speaker, X, M=8, epsilon=0.0, maxIter=20):
     ''' Train a model for the given speaker. Returns the theta (omega, mu, sigma)'''
     myTheta = theta(speaker, M, X.shape[1])
-    print('Training the model for {}'.format(speaker))
+    # print('Training the model for {}'.format(speaker))
 
     # initialize the model
     myTheta.omega.fill(1 / M)
@@ -119,7 +86,7 @@ def train(speaker, X, M=8, epsilon=0.0, maxIter=20):
     T = X.shape[0]
     log_Bs = np.zeros((M, T))
 
-    while iter <= maxIter and improvement >= epsilon:
+    while iter <= maxIter or improvement >= epsilon:
         # ComputeIntermediateResults
         # print('iteration {}'.format(iter))
         for m in range(M):
@@ -169,33 +136,59 @@ def test(mfcc, correctID, models, k=5):
     for i in range(numSpeaker):
         logLik[i] = np.sum(logsumexp(logBs[i], b=models[i].omega, axis=0))
     bestModel = np.argmax(logLik)
-    if k > 0:
-        topK = logLik.argsort()[-k:][::-1]
-        output = '{}\n'.format(models[correctID].name)
-        for i in range(k):
-            output += '{:5} {}\n'.format(models[int(topK[i])].name, logLik[int(topK[i])])
-        print(output)
-        with open('gmmLiks.txt', 'a') as f:
-            f.write(output)
+    # if k > 0:
+    #     topK = logLik.argsort()[-k:][::-1]
+    #     output = '{}\n'.format(models[correctID].name)
+    #     for i in range(k):
+    #         output += '{:5} {}\n'.format(models[int(topK[i])].name, logLik[int(topK[i])])
+    #     print(output)
+    #     with open('bonus_gmmLiks.txt', 'a') as f:
+    #         f.write(output)
     return 1 if (bestModel == correctID) else 0
+
+def Classify(trainMFCCs, trainSpeakers, testMFCCs, M, epsilon, maxIter):
+    '''
+    Perform classification with specified M, epsilon, maxIter
+    :param trainMFCCs: a list of train set separated by each speaker
+    :param trainSpeakers: a list of speaker corresponds to trainMFCCs
+    :param testMFCCs: a list of test data pops from each speaker's folder
+    :param M: number of GMM
+    :param epsilon: threhold for improvment to let the EM stop
+    :param maxIter: max iteration for EM run
+    :return: accurancy
+    '''
+    trainThetas = []
+    k = 5  # number of top speakers to display, <= 0 if none
+    X = np.vstack(trainMFCCs)
+    first = last = 0
+    for i in range(len(trainMFCCs)):
+        first = last
+        length = trainMFCCs[i].shape[0]
+        last = first + length
+        trainThetas.append(train(trainSpeakers[i], X[first:last], M, epsilon, maxIter))
+
+    # evaluate
+    numCorrect = 0;
+    for i in range(0, len(testMFCCs)):
+        numCorrect += test(testMFCCs[i], i, trainThetas, k)
+    accuracy = 1.0 * numCorrect / len(testMFCCs)
+    return accuracy
 
 
 if __name__ == "__main__":
-
-    trainThetas = []
-    testMFCCs = []
-    # print('TODO: you will need to modify this main block for Sec 2.3')
+    # if os.path.isfile('p24m.txt'):
+    #     os.remove('p24m.txt')
     d = 13
-    k = 5  # number of top speakers to display, <= 0 if none
     M = 8
     epsilon = 0.0
-    maxIter = 20
+    maxIter = 5
+    trainMFCCs = []
+    trainSpeakers = []
+    testMFCCs = []
 
     # train a model for each speaker, and reserve data for testing
     for subdir, dirs, files in os.walk(dataDir):
         for speaker in dirs:
-            print(speaker)
-
             files = fnmatch.filter(os.listdir(os.path.join(dataDir, speaker)), '*npy')
             random.shuffle(files)
 
@@ -206,14 +199,22 @@ if __name__ == "__main__":
             for file in files:
                 myMFCC = np.load(os.path.join(dataDir, speaker, file))
                 X = np.append(X, myMFCC, axis=0)
+            trainMFCCs.append(X)
+            trainSpeakers.append(speaker)
 
-            trainThetas.append(train(speaker, X, M, epsilon, maxIter))
-
-    # evaluate
-    numCorrect = 0;
-    if os.path.isfile('gmmLiks.txt'):
-        os.remove('gmmLiks.txt')
-    for i in range(0, len(testMFCCs)):
-        numCorrect += test(testMFCCs[i], i, trainThetas, k)
-    accuracy = 1.0 * numCorrect / len(testMFCCs)
-    print("Accurancy is {}".format(accuracy))
+    output = ''
+    M_list = [4,8]
+    e_list = [0]
+    maxIter_list = [1,10,20]
+    speaker_list = [8,32]
+    for m in M_list:
+        for maxIter in maxIter_list:
+            for numS in speaker_list:
+                for epsilon in e_list:
+                    print('maxIter={}, m={}, numSpeaker={}, e={}'.format(maxIter, m, numS, epsilon))
+                    accuracy = Classify(trainMFCCs[:numS], trainSpeakers[:numS], testMFCCs[:numS], m, epsilon, maxIter)
+                    # output += "maxIter = {:2}, m={:2}, numSpeaker={:2}, e={}, accurancy is {:.6f}\n".format(maxIter, m, numS, epsilon, accuracy)
+                    print(accuracy)
+    print(output)
+    # with open('p24m.txt', 'a') as f:
+    #     f.write(output)

@@ -1,0 +1,13 @@
+With the original dimension 13, accurancy is 1.000000
+Using PCA to reduce d to 12, accurancy is 1.000000
+Using PCA to reduce d to 11, accurancy is 1.000000
+Using PCA to reduce d to 10, accurancy is 1.000000
+Using PCA to reduce d to  9, accurancy is 1.000000
+Using PCA to reduce d to  8, accurancy is 1.000000
+Using PCA to reduce d to  7, accurancy is 1.000000
+Using PCA to reduce d to  6, accurancy is 1.000000
+Using PCA to reduce d to  5, accurancy is 1.000000
+Using PCA to reduce d to  4, accurancy is 0.968750
+Using PCA to reduce d to  3, accurancy is 1.000000
+Using PCA to reduce d to  2, accurancy is 0.937500
+Using PCA to reduce d to  1, accurancy is 0.687500

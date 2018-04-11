@@ -1,7 +1,8 @@
-import os
 import re
 import numpy as np
-
+import os, fnmatch
+from deepspeech.model import Model
+import scipy.io.wavfile as wav
 dataDir = '../data/'
 # dataDir = '/u/cs401/A3/data/'
 
@@ -11,15 +12,19 @@ pattern1 = re.compile("\[.*?\]")
 pattern2 = re.compile("\<.*?\>")
 
 
-def preProcess(strSent):
+def preProcess(strSent,deepspeech = False):
     '''
     pre-process the list of string, remove the punctuation and lowercase everything
     :param strSent: a string of sentence
     :return: a list of processed string
     '''
-    strList = strSent.strip().lower().split()
     # strSent = ' '.join([strList[0]] + strList[2:])
-    strSent = strSent = ' '.join(strList[2:])
+    if not deepspeech:
+        strList = strSent.strip().lower().split()
+        strSent = ' '.join(strList[2:])
+    else:
+        strSent = strSent.strip().lower()
+
     strSent = re.sub(pattern1, '', strSent)
     strSent = re.sub(pattern2, '', strSent)
     for punc in punc_set:
@@ -44,14 +49,6 @@ def Levenshtein(r, h):
     -------
     (WER, nS, nI, nD): (float, int, int, int) WER, number of substitutions, insertions, and deletions respectively
 
-    Examples
-    --------
-    >>> wer("who is there".split(), "is there".split())
-    0.333 0 0 1
-    >>> wer("who is there".split(), "".split())
-    1.0 0 0 3
-    >>> wer("".split(), "who is there".split())
-    Inf 0 3 0
     """
     n = len(r)
     m = len(h)
@@ -63,9 +60,6 @@ def Levenshtein(r, h):
     B[:, 0] = 1
     B[0, :] = 2
     B[0, 0] = 0
-    # R[:,0] = float('inf')
-    # R[0,:] = float('inf')
-    # R[0,0] = 0
 
     for i in range(1, n + 1):
         for j in range(1, m + 1):
@@ -97,14 +91,18 @@ def Levenshtein(r, h):
 
     return accuracy, int(act_list[0]), int(act_list[1]), int(act_list[2])
 
-
 if __name__ == "__main__":
     # print(Levenshtein("how to recognize speech".split(), "how to wreck a nice bench".split()))
-    if os.path.isfile('asrDiscussion.txt'):
-        os.remove('asrDiscussion.txt')
+    if os.path.isfile('bonus_deepspeech.txt'):
+        os.remove('bonus_deepspeech.txt')
+
+    pretrain_model = './speech/models/output_graph.pb'
+    alphabet = './speech/models/alphabet.txt'
+    ds = Model(pretrain_model, 26, 9, alphabet, 500)
 
     werGoogle = []
     werKaldi = []
+    werDeep = []
 
     for subdir, dirs, files in os.walk(dataDir):
         for speaker in dirs:
@@ -130,28 +128,47 @@ if __name__ == "__main__":
                 if kContent:
                     kValid = True
 
-                if kValid or gValid:
-                    output = ''
-                    for i in range(len(tContent)):
-                        if kValid:
-                            args = Levenshtein(preProcess(tContent[i]), preProcess(kContent[i]))
-                            output += '{:5} Kaldi  {:2} {:.6f} S:{:3}, I:{:3}, D:{:3}\n'.format(speaker, i, args[0],
-                                    args[1], args[2], args[3])
-                            werKaldi.append(args[0])
-                        if gValid:
-                            args = Levenshtein(preProcess(tContent[i]), preProcess(gContent[i]))
-                            output += '{:5} Google {:2} {:.6f} S:{:3}, I:{:3}, D:{:3}\n'.format(speaker, i, args[0],
-                                    args[1], args[2], args[3])
-                            werGoogle.append(args[0])
-                    with open('asrDiscussion.txt', 'a') as f:
-                        f.write(output)
+                print('DeepSpeech Processing for {}'.format(speaker))
+                files = fnmatch.filter(os.listdir(os.path.join(dataDir, speaker)), '*wav')
+                files = sorted(files, key = lambda x: (x[1], x[0]))
+                output_deepspeech = []
+                numFiles = len(files)
+
+                for i, file in enumerate(files):
+                    print('DeepSpeech Processing for {}. {}/{}'.format(speaker, i, numFiles))
+                    wav_file = os.path.join(dataDir, speaker, file)
+                    print('File path: {}'.format(wav_file))
+                    fs, audio = wav.read(wav_file)
+                    recogData = ds.stt(audio, fs)
+                    output_deepspeech.append(recogData)
+                    print('DeepSpeech recognized content for  {}. {}/{}'.format(speaker, i, numFiles))
+                    print(recogData)
+
+
+                output = ''
+                for i in range(len(tContent)):
+                    args = Levenshtein(preProcess(tContent[i]), preProcess(output_deepspeech[i]))
+                    output += '{:5} DeepS  {:2} {:.6f} S:{:3}, I:{:3}, D:{:3}\n'.format(speaker, i, args[0],
+                            args[1], args[2], args[3])
+                    werDeep.append(args[0])
+                    if kValid:
+                        args = Levenshtein(preProcess(tContent[i]), preProcess(kContent[i]))
+                        output += '{:5} Kaldi  {:2} {:.6f} S:{:3}, I:{:3}, D:{:3}\n'.format(speaker, i, args[0],
+                                args[1], args[2], args[3])
+                        werKaldi.append(args[0])
+                    if gValid:
+                        args = Levenshtein(preProcess(tContent[i]), preProcess(gContent[i]))
+                        output += '{:5} Google {:2} {:.6f} S:{:3}, I:{:3}, D:{:3}\n'.format(speaker, i, args[0],
+                                args[1], args[2], args[3])
+                        werGoogle.append(args[0])
+
+
+                with open('bonus_deepspeech.txt', 'a') as f:
+                    f.write(output)
     werG = np.array(werGoogle)
     werK = np.array(werKaldi)
-    output = 'For Google: mean:{:.6f}, std:{:.6f}; For Kaldi: mean:{:.6f}, std:{:.6f}\n'.format(werG.mean(), werG.std(),
-        werK.mean(), werK.std())
-    output += 'By manually checking the transcript, I found both of Google and Kaldi misunderstood some words, ' \
-              'especailly those short incomplete sentence made of oral phrases. Google tends to recognize speech as some common phrase combinations.' \
-              'If the input has incompele sentence or non-common phrase, Google will recognize them wrongly. Kaldi tries to capture more ' \
-              'details, like the emotion of the speaker (those bracket we remove for comparason), some oral words like um, ah, mhm, etc.\n'
-    with open('asrDiscussion.txt', 'a') as f:
+    werD = np.array(werDeep)
+    output = 'For Google: mean:{:.6f}, std:{:.6f}; For Kaldi: mean:{:.6f}, std:{:.6f}; For DeepS: mean:{:.6f}, std:{:.6f}\n'.format(
+                    werG.mean(), werG.std(), werK.mean(), werK.std(), werD.mean(), werD.std())
+    with open('bonus_deepspeech.txt', 'a') as f:
         f.write(output)

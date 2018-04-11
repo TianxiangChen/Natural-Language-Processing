@@ -1,0 +1,12 @@
+maxIter =  1, m= 2, numSpeaker= 8, accurancy is 1.000000
+maxIter =  1, m= 2, numSpeaker=32, accurancy is 0.750000
+maxIter = 10, m= 2, numSpeaker= 8, accurancy is 1.000000
+maxIter = 10, m= 2, numSpeaker=32, accurancy is 0.968750
+maxIter = 20, m= 2, numSpeaker= 8, accurancy is 1.000000
+maxIter = 20, m= 2, numSpeaker=32, accurancy is 0.968750
+maxIter =  1, m= 8, numSpeaker= 8, accurancy is 0.875000
+maxIter =  1, m= 8, numSpeaker=32, accurancy is 0.937500
+maxIter = 10, m= 8, numSpeaker= 8, accurancy is 1.000000
+maxIter = 10, m= 8, numSpeaker=32, accurancy is 0.968750
+maxIter = 20, m= 8, numSpeaker= 8, accurancy is 1.000000
+maxIter = 20, m= 8, numSpeaker=32, accurancy is 1.000000
